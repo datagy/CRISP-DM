@@ -21,25 +21,27 @@ def load_data(database_filepath):
     Returns:
     X - message data
     y - target values
-    column_names - list of column names."""
+    category_names - names of category headers as a list"""
     
     engine = create_engine(f'sqlite:///{database_filepath}')
-    df = pd.read_sql_table('messages', engine)
-    X = df.message
-    y = df.drop(['id', 'message', 'genre', 'original'], axis=1)
-#     for col in y.columns:
-#         y[col] = pd.to_numeric(y[col])
-    print(y)
-    category_names = y.columns.tolist()
+    df = pd.read_sql_table('messages', engine) #reads in SQL table, without using a pd_read_sql query
+    X = df.message # generates (1,0) array for message to be transformed and processed via TF-IDF
+    y = df.drop(['id', 'message', 'genre', 'original'], axis=1) #Keeps only the categories
+    category_names = y.columns.tolist() #generates category names
     
     return X, y, category_names
 
 
 def tokenize(text):
-    """Takes text as an input and returns tokenized text."""    
+    """Takes text as an input and returns tokenized text.
+    -Removes URLs and replaces with urlplaceholder
+    - keeps only text
+    - lemmatizes words
+    - strips whitespace
+    
+    Returns clean tokens"""    
     
     url_regex = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
-
     detected_urls = re.findall(url_regex, text)
     for url in detected_urls:
         text = text.replace(url, "urlplaceholder")
@@ -58,14 +60,14 @@ def tokenize(text):
 def build_model():
     """Builds a pipeline, inserts parameters, and returns a cv."""
     pipeline = Pipeline([
-        ('vect', CountVectorizer(tokenizer=tokenize)),
-        ('tfidf', TfidfTransformer()),
-        ('clf', MultiOutputClassifier(AdaBoostClassifier()))
+        ('vect', CountVectorizer(tokenizer=tokenize)),  #Convert a collection of text documents to a matrix of token counts
+        ('tfidf', TfidfTransformer()),  #Transform a count matrix to a normalized tf or tf-idf representation
+        ('clf', MultiOutputClassifier(AdaBoostClassifier()))  # set the weights of classifiers and training the data sample in each iteration such that it ensures the accurate predictions of unusual observations
     ])
     parameters = {
-            'vect__ngram_range': ((1, 1), (1, 2)),
-            'vect__max_df': (0.5, 0.75, 1.0),
-            'tfidf__use_idf': (True, False)
+            'vect__ngram_range': ((1, 1), (1, 2)),  #(1,1) uses only unigrams (single words), (1,2) identifies unigrams and bigrams
+            'vect__max_df': (0.5, 0.75, 1.0),  #ignore words that occur in 50%, 75% or 100% of documents
+            'tfidf__use_idf': (True, False) # determines whether idf (TRUE) is used or only tf (FALSE)
         }
 
     cv = GridSearchCV(pipeline, param_grid=parameters, verbose=2, n_jobs=-1)
@@ -86,8 +88,8 @@ def evaluate_model(model, X_test, Y_test, category_names):
 
 
 def save_model(model, model_filepath):
-    """Saves the model to a pickel file."""
-    pickle.dump(pipeline, open('model.pkl', 'wb'))
+    """Saves the model to a pickle file."""
+    pickle.dump(model, open(model_filepath, 'wb'))
 
 
 def main():
@@ -114,7 +116,7 @@ def main():
     else:
         print('Please provide the filepath of the disaster messages database '\
               'as the first argument and the filepath of the pickle file to '\
-              'save the model to as the second argument. \n\nExample: python '\
+              'save the model t o as the second argument. \n\nExample: python '\
               'train_classifier.py ../data/DisasterResponse.db classifier.pkl')
 
 
