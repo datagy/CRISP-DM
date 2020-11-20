@@ -1,19 +1,17 @@
-import sys
+import sys, re, pickle, nltk
+nltk.download(['punkt', 'wordnet'])
+import numpy as np
 import pandas as pd
 from sqlalchemy import create_engine
-import nltk
-import re
-import pickle
-nltk.download(['punkt', 'wordnet'])
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
-from sklearn.ensemble import AdaBoostClassifier
-from sklearn.pipeline import Pipeline
-from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
-from sklearn.multioutput import MultiOutputClassifier
-from sklearn.metrics import precision_score, recall_score, f1_score
+from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from sklearn.pipeline import Pipeline
 from sklearn.model_selection import GridSearchCV
+from sklearn.multioutput import MultiOutputClassifier
 
 def load_data(database_filepath):
     """Takes the database_filepath as an input and loads the data. 
@@ -62,35 +60,31 @@ def build_model():
     pipeline = Pipeline([
         ('vect', CountVectorizer(tokenizer=tokenize)),  #Convert a collection of text documents to a matrix of token counts
         ('tfidf', TfidfTransformer()),  #Transform a count matrix to a normalized tf or tf-idf representation
-        ('clf', MultiOutputClassifier(AdaBoostClassifier()))  # set the weights of classifiers and training the data sample in each iteration such that it ensures the accurate predictions of unusual observations
+        ('clf', MultiOutputClassifier(RandomForestClassifier()))  # set the weights of classifiers and training the data sample in each iteration such that it ensures the accurate predictions of unusual observations
     ])
     parameters = {
-            'vect__ngram_range': ((1, 1), (1, 2)),  #(1,1) uses only unigrams (single words), (1,2) identifies unigrams and bigrams
-            'vect__max_df': (0.5, 0.75, 1.0),  #ignore words that occur in 50%, 75% or 100% of documents
-            'tfidf__use_idf': (True, False) # determines whether idf (TRUE) is used or only tf (FALSE)
+#         'vect__ngram_range': ((1, 1), (1, 2)),  #(1,1) uses only unigrams (single words), (1,2) identifies unigrams and bigrams
+        'vect__max_df': (0.5, 1.0),  #ignore words that occur in 50%, 75% or 100% of documents
+        'tfidf__use_idf': (True, False) # determines whether idf (TRUE) is used or only tf (FALSE)
         }
 
-    cv = GridSearchCV(pipeline, param_grid=parameters, verbose=2, n_jobs=-1)
+    cv = GridSearchCV(pipeline, param_grid=parameters, verbose=2, n_jobs=4, cv=3)
     return cv
 
-
 def evaluate_model(model, X_test, Y_test, category_names):
-    """Evaluate the model. Takes a model, the X_test matrix, Y_test, and category names as inputs. Prints out an evaluation dataframe."""
+#     Y_pred = model.predict(X_test)
+#     print(classification_report(Y_test, Y_pred, target_names = category_names))
+#     print('---------------------------------')
+#     for i in range(Y_test.shape[1]):
+#         print('%25s accuracy : %.2f' %(category_names[i], accuracy_score(Y_test[:,i], Y_pred[:,i])))
     y_pred = model.predict(X_test)
-    y_pred_df = pd.DataFrame(y_pred, columns=category_names)
-    evaluation = {}
-    for column in Y_test.columns:
-        evaluation[column] = []
-        evaluation[column].append(precision_score(Y_test[column], y_pred_df[column]))
-        evaluation[column].append(recall_score(Y_test[column], y_pred_df[column]))
-        evaluation[column].append(f1_score(Y_test[column], y_pred_df[column]))
-    print(pd.DataFrame(evaluation))
+    class_report = classification_report(Y_test, y_pred, target_names=category_names)
+    print(class_report)
 
 
 def save_model(model, model_filepath):
-    """Saves the model to a pickle file."""
-    pickle.dump(model, open(model_filepath, 'wb'))
-
+    with open(model_filepath, 'wb') as file:
+        pickle.dump(model, file)
 
 def main():
     if len(sys.argv) == 3:
