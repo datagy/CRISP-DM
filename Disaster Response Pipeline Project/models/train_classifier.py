@@ -72,6 +72,7 @@ def build_model():
     return cv
 
 def evaluate_model(model, X_test, Y_test, category_names):
+    """Evaluates the mode and returns as classification report"""
 #     Y_pred = model.predict(X_test)
 #     print(classification_report(Y_test, Y_pred, target_names = category_names))
 #     print('---------------------------------')
@@ -83,6 +84,7 @@ def evaluate_model(model, X_test, Y_test, category_names):
 
 
 def save_model(model, model_filepath):
+    """Saves the model to a pickle file"""
     with open(model_filepath, 'wb') as file:
         pickle.dump(model, file)
 
