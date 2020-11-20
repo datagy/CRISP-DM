@@ -16,6 +16,7 @@ from sqlalchemy import create_engine
 app = Flask(__name__)
 
 def tokenize(text):
+    """Takes text as input and returns tokenized text, including lemmatizing."""
     tokens = word_tokenize(text)
     lemmatizer = WordNetLemmatizer()
 
